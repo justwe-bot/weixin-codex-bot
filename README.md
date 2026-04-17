@@ -9,18 +9,20 @@
 
 ## 从 Git 仓库安装到 Codex
 
-如果这个仓库被推到 GitHub、Gitea 或任何可访问的 Git 地址，其他 Codex 客户端可以把它当成一个 marketplace 仓库来接入：
+其他 Codex 客户端可以直接把这个仓库当成一个 marketplace 仓库来接入：
 
 ```bash
-codex marketplace add <git-repo-url>
+codex marketplace add https://github.com/justwe-bot/weixin-codex-bot.git
 ```
+
+安装完成后，**请重启 Codex 桌面客户端**，然后再去插件列表里查看和使用 `weixin-codex-bot`。
 
 这个仓库已经包含了标准的 marketplace 描述文件：
 
 - `/.agents/plugins/marketplace.json`
 - `/plugins/weixin-codex-bot/.codex-plugin/plugin.json`
 
-也就是说，后续别人只需要拿到仓库地址，就可以把这个仓库登记成 Codex marketplace 源，再启用 `weixin-codex-bot` 插件。
+也就是说，后续别人只需要执行上面的命令，就可以把这个仓库登记成 Codex marketplace 源。
 
 首次使用时，推荐直接调用插件里的 `wechat_ilink_ensure_login` 工具。
 如果还没有绑定微信，它会返回：
