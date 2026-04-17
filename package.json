@@ -1,0 +1,24 @@
+{
+  "name": "weixin-codex-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone WeChat iLink bridge and Codex MCP plugin",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-plugin-mcp.mjs",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev:mcp": "node --import tsx src/mcp/server.ts",
+    "login": "node --import tsx src/cli/login.ts",
+    "bridge": "node --import tsx src/cli/bridge.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11",
+    "@types/node": "^22.15.21",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

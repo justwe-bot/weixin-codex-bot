@@ -1,0 +1,20 @@
+{
+  "name": "weixin-codex-bot-marketplace",
+  "interface": {
+    "displayName": "Weixin Codex Bot"
+  },
+  "plugins": [
+    {
+      "name": "weixin-codex-bot",
+      "source": {
+        "source": "local",
+        "path": "./plugins/weixin-codex-bot"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

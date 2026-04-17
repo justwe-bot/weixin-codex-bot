@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "wechat-ilink": {
+      "command": "node",
+      "args": [
+        "./dist/mcp/server.js"
+      ]
+    }
+  }
+}
