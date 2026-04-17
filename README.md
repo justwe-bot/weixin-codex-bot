@@ -7,6 +7,16 @@
 
 这套实现不依赖 OpenClaw。
 
+## Marketplace 结构
+
+这个仓库的根目录现在只承担 **Codex marketplace root** 的角色。
+
+- marketplace 描述文件在 `/.agents/plugins/marketplace.json`
+- 真正可分发的插件包固定在 `/plugins/weixin-codex-bot`
+- 插件运行 bundle 直接随仓库提交在 `/plugins/weixin-codex-bot/dist/mcp/server.js`
+
+也就是说，Codex 安装这个仓库时，消费的是 `plugins/weixin-codex-bot` 这份完整插件包，而不是仓库根目录。
+
 ## 从 Git 仓库安装到 Codex
 
 其他 Codex 客户端可以直接把这个仓库当成一个 marketplace 仓库来接入：
@@ -15,14 +25,15 @@
 codex marketplace add https://github.com/justwe-bot/weixin-codex-bot.git
 ```
 
-安装完成后，**请重启 Codex 桌面客户端**，然后再去插件列表里查看和使用 `weixin-codex-bot`。
+安装完成后，**请重启 Codex 桌面客户端**。重启之后，再去插件列表里查看 `WeChat iLink`。
 
-这个仓库已经包含了标准的 marketplace 描述文件：
+插件消费者不需要再手工执行：
 
-- `/.agents/plugins/marketplace.json`
-- `/plugins/weixin-codex-bot/.codex-plugin/plugin.json`
+- `npm install`
+- `npm run build`
+- 手工把文件复制到 `~/.codex/plugins/cache`
 
-也就是说，后续别人只需要执行上面的命令，就可以把这个仓库登记成 Codex marketplace 源。
+fresh clone 之后，直接 `codex marketplace add <repo-url-or-local-path>` 即可。
 
 首次使用时，推荐直接调用插件里的 `wechat_ilink_ensure_login` 工具。
 如果还没有绑定微信，它会返回：
@@ -35,14 +46,17 @@ codex marketplace add https://github.com/justwe-bot/weixin-codex-bot.git
 
 ## 项目结构
 
-- `.codex-plugin/plugin.json`: Codex 插件清单
-- `.mcp.json`: MCP 启动配置
+- `.agents/plugins/marketplace.json`: 仓库级 marketplace 描述
+- `plugins/weixin-codex-bot/.codex-plugin/plugin.json`: 插件清单
+- `plugins/weixin-codex-bot/.mcp.json`: MCP 启动配置
+- `plugins/weixin-codex-bot/dist/mcp/server.js`: 已提交的可运行 MCP bundle
+- `plugins/weixin-codex-bot/skills/`: 插件内置 onboarding skill
 - `src/ilink/*`: 独立 iLink 协议层
 - `src/mcp/server.ts`: 提供给 Codex 的 MCP tools
 - `src/cli/login.ts`: 终端扫码登录微信
 - `src/cli/bridge.ts`: 微信消息桥接到本机 Codex CLI
 
-## 本地开发安装
+## 开发者构建
 
 ```bash
 git clone <your-git-url>
@@ -51,8 +65,12 @@ npm install
 npm run build
 ```
 
-如果只是给其他 Codex 客户端当插件源使用，仓库里已经提交了插件运行所需的 bundle，
-客户端通过 `codex marketplace add <git-repo-url>` 接入后，不需要额外先跑 `npm install`。
+`npm run build` 会做两件事：
+
+- 校验 TypeScript
+- 重新生成并覆盖 `plugins/weixin-codex-bot/dist/mcp/server.js`
+
+也就是说，插件分发产物的唯一输出目录就是 `plugins/weixin-codex-bot/`。发布 tag 或 release 前，需要确认这个 bundle 已经是最新版本。
 
 ## 微信登录
 

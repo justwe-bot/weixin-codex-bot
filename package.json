@@ -5,8 +5,10 @@
   "type": "module",
   "description": "Standalone WeChat iLink bridge and Codex MCP plugin",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/build-plugin-mcp.mjs",
-    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "npm run check && npm run package:plugin",
+    "build:plugin": "node scripts/build-plugin-mcp.mjs",
+    "package:plugin": "node scripts/build-plugin-mcp.mjs",
+    "check": "tsc -p tsconfig.json",
     "dev:mcp": "node --import tsx src/mcp/server.ts",
     "login": "node --import tsx src/cli/login.ts",
     "bridge": "node --import tsx src/cli/bridge.ts"
