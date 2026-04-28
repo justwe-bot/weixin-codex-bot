@@ -11,7 +11,9 @@
     "check": "tsc -p tsconfig.json",
     "dev:mcp": "node --import tsx src/mcp/server.ts",
     "login": "node --import tsx src/cli/login.ts",
-    "bridge": "node --import tsx src/cli/bridge.ts"
+    "bridge": "node --import tsx src/cli/bridge.ts",
+    "queue:list": "node --import tsx src/cli/queue-list.ts",
+    "queue:pop": "node --import tsx src/cli/queue-pop.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

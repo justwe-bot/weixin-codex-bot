@@ -8,7 +8,16 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const pluginRoot = path.join(repoRoot, "plugins/weixin-codex-bot");
 
-const entry = path.join(repoRoot, "src/mcp/server.ts");
+const entrypoints = [
+  {
+    entry: path.join(repoRoot, "src/mcp/server.ts"),
+    outfile: path.join(pluginRoot, "dist/mcp/server.js"),
+  },
+  {
+    entry: path.join(repoRoot, "src/cli/bridge.ts"),
+    outfile: path.join(pluginRoot, "dist/cli/bridge.js"),
+  },
+];
 const requiredPaths = [
   path.join(pluginRoot, ".codex-plugin/plugin.json"),
   path.join(pluginRoot, ".mcp.json"),
@@ -16,21 +25,22 @@ const requiredPaths = [
 ];
 
 for (const requiredPath of requiredPaths) {
-  await access(requiredPath);
+await access(requiredPath);
 }
 
 await rm(path.join(repoRoot, "dist"), { recursive: true, force: true });
 await rm(path.join(pluginRoot, "dist"), { recursive: true, force: true });
 
-const outfile = path.join(pluginRoot, "dist/mcp/server.js");
-await mkdir(path.dirname(outfile), { recursive: true });
-await build({
-  entryPoints: [entry],
-  outfile,
-  bundle: true,
-  format: "esm",
-  platform: "node",
-  target: "node22",
-  sourcemap: false,
-  legalComments: "none",
-});
+for (const { entry, outfile } of entrypoints) {
+  await mkdir(path.dirname(outfile), { recursive: true });
+  await build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    target: "node22",
+    sourcemap: false,
+    legalComments: "none",
+  });
+}

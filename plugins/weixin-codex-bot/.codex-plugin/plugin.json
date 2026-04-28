@@ -17,7 +17,7 @@
   "interface": {
     "displayName": "WeChat iLink",
     "shortDescription": "Use WeChat iLink from Codex",
-    "longDescription": "Login to WeChat via iLink, pull inbound messages, and send replies from Codex through MCP tools.",
+    "longDescription": "Login to WeChat via iLink, manage a realtime WeChat bridge, pull inbound messages, and send replies from Codex through MCP tools.",
     "developerName": "xiongdi",
     "category": "Productivity",
     "capabilities": [
@@ -25,7 +25,9 @@
       "Automation"
     ],
     "defaultPrompt": [
-      "检查微信 iLink 登录状态，没有绑定就引导扫码",
+      "运行微信首启 setup：检查登录，没有绑定就引导扫码，登录后自动启动 exec 或 queue bridge",
+      "在 queue 模式下根据 setup 返回的模板创建当前线程 heartbeat automation",
+      "启动或查看微信实时 bridge 后台服务",
       "拉取微信最新消息并整理成可回复的摘要",
       "向指定微信用户发送纯文本回复"
     ],

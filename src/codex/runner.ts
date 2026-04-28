@@ -106,7 +106,7 @@ export async function runCodexPrompt(input: CodexRunInput): Promise<CodexRunResu
     args.push("--add-dir", addDir);
   }
 
-  args.push("--json", "--color", "never", "--output-last-message", outputPath);
+  args.push("--json", "--output-last-message", outputPath);
 
   return new Promise<CodexRunResult>((resolve, reject) => {
     const child = spawn(input.config.codexBinary, args, {

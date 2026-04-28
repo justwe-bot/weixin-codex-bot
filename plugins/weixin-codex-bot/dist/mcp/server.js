@@ -3221,8 +3221,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path5) {
+      let input = path5;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3421,8 +3421,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path5, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path5 && path5 !== "/" ? path5 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -6784,12 +6784,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs2, exportName) {
+    function addFormats(ajv, list, fs5, exportName) {
       var _a2;
       var _b;
       (_a2 = (_b = ajv.opts.code).formats) !== null && _a2 !== void 0 ? _a2 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs2[f]);
+        ajv.addFormat(f, fs5[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7867,6 +7867,11 @@ var require_main = __commonJS({
   }
 });
 
+// src/mcp/server.ts
+import fs4 from "node:fs";
+import path4 from "node:path";
+import { spawnSync as spawnSync2 } from "node:child_process";
+
 // node_modules/zod/v3/helpers/util.js
 var util;
 (function(util2) {
@@ -8226,8 +8231,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path2, errorMaps, issueData } = params;
-  const fullPath = [...path2, ...issueData.path || []];
+  const { data, path: path5, errorMaps, issueData } = params;
+  const fullPath = [...path5, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -8342,11 +8347,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path2, key) {
+  constructor(parent, value, path5, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path2;
+    this._path = path5;
     this._key = key;
   }
   get path() {
@@ -11992,10 +11997,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path2) {
-  if (!path2)
+function getElementAtPath(obj, path5) {
+  if (!path5)
     return obj;
-  return path2.reduce((acc, key) => acc?.[key], obj);
+  return path5.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -12378,11 +12383,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path2, issues) {
+function prefixIssues(path5, issues) {
   return issues.map((iss) => {
     var _a2;
     (_a2 = iss).path ?? (_a2.path = []);
-    iss.path.unshift(path2);
+    iss.path.unshift(path5);
     return iss;
   });
 }
@@ -21905,6 +21910,203 @@ var StdioServerTransport = class {
 // src/mcp/server.ts
 var import_qrcode_terminal = __toESM(require_main(), 1);
 
+// src/bridge/launchd.ts
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+var BRIDGE_AGENT_LABEL = "com.xiongdi.weixin-codex-bot.bridge";
+function ensureDarwin() {
+  if (process.platform !== "darwin") {
+    throw new Error("The realtime bridge service currently supports macOS launchd only.");
+  }
+}
+function escapeXml(value) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+}
+function getLaunchdDomain() {
+  const uid = process.getuid?.();
+  if (uid == null) {
+    throw new Error("Unable to determine the current macOS user id.");
+  }
+  return `gui/${uid}`;
+}
+function getTargetLabel(label = BRIDGE_AGENT_LABEL) {
+  return `${getLaunchdDomain()}/${label}`;
+}
+function getBridgeAgentPaths(stateDirectory, label = BRIDGE_AGENT_LABEL) {
+  return {
+    label,
+    plistPath: path.join(os.homedir(), "Library", "LaunchAgents", `${label}.plist`),
+    stdoutPath: path.join(stateDirectory, "bridge.stdout.log"),
+    stderrPath: path.join(stateDirectory, "bridge.stderr.log")
+  };
+}
+function runLaunchctl(args, allowFailure = false) {
+  const result = spawnSync("launchctl", args, {
+    encoding: "utf8"
+  });
+  const output = [result.stdout || "", result.stderr || ""].map((item) => item.trim()).filter(Boolean).join("\n");
+  if (result.status !== 0 && !allowFailure) {
+    throw new Error(output || `launchctl ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}`);
+  }
+  return {
+    ok: result.status === 0,
+    output
+  };
+}
+function readTail(filePath, maxLines = 20) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  const content = fs.readFileSync(filePath, "utf8").trim();
+  if (!content) {
+    return null;
+  }
+  return content.split("\n").slice(-maxLines).join("\n");
+}
+function parseBooleanFlag(text, label) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = text.match(new RegExp(`"${escapedLabel}"\\s*=>\\s*(true|false)`));
+  if (!match) {
+    return null;
+  }
+  return match[1] === "true";
+}
+function buildLaunchAgentPlist(input) {
+  const values = {
+    label: escapeXml(input.label),
+    nodeBinary: escapeXml(input.nodeBinary),
+    bridgeEntrypoint: escapeXml(input.bridgeEntrypoint),
+    stateDirectory: escapeXml(input.stateDirectory),
+    stdoutPath: escapeXml(input.stdoutPath),
+    stderrPath: escapeXml(input.stderrPath)
+  };
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${values.label}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${values.nodeBinary}</string>
+    <string>${values.bridgeEntrypoint}</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>${values.stateDirectory}</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>${values.stdoutPath}</string>
+  <key>StandardErrorPath</key>
+  <string>${values.stderrPath}</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>WEIXIN_CODEX_BOT_HOME</key>
+    <string>${values.stateDirectory}</string>
+  </dict>
+</dict>
+</plist>
+`;
+}
+function installOrUpdateBridgeAgent(input) {
+  ensureDarwin();
+  const label = input.label || BRIDGE_AGENT_LABEL;
+  const nodeBinary = input.nodeBinary || process.execPath;
+  if (!fs.existsSync(input.bridgeEntrypoint)) {
+    throw new Error(`Bridge runtime not found: ${input.bridgeEntrypoint}`);
+  }
+  if (!fs.existsSync(nodeBinary)) {
+    throw new Error(`Node runtime not found: ${nodeBinary}`);
+  }
+  const paths = getBridgeAgentPaths(input.stateDirectory, label);
+  fs.mkdirSync(path.dirname(paths.plistPath), { recursive: true });
+  fs.mkdirSync(input.stateDirectory, { recursive: true });
+  fs.writeFileSync(
+    paths.plistPath,
+    buildLaunchAgentPlist({
+      label,
+      nodeBinary,
+      bridgeEntrypoint: input.bridgeEntrypoint,
+      stateDirectory: input.stateDirectory,
+      stdoutPath: paths.stdoutPath,
+      stderrPath: paths.stderrPath
+    }),
+    "utf8"
+  );
+  return paths;
+}
+function startBridgeAgent(input) {
+  const paths = installOrUpdateBridgeAgent(input);
+  const domain2 = getLaunchdDomain();
+  const target = getTargetLabel(paths.label);
+  runLaunchctl(["enable", target], true);
+  runLaunchctl(["bootout", domain2, paths.plistPath], true);
+  runLaunchctl(["bootstrap", domain2, paths.plistPath]);
+  runLaunchctl(["kickstart", "-k", target], true);
+  return getBridgeAgentStatus(input.stateDirectory, paths.label);
+}
+function stopBridgeAgent(stateDirectory, label = BRIDGE_AGENT_LABEL) {
+  ensureDarwin();
+  const paths = getBridgeAgentPaths(stateDirectory, label);
+  const domain2 = getLaunchdDomain();
+  const target = getTargetLabel(label);
+  runLaunchctl(["bootout", domain2, paths.plistPath], true);
+  runLaunchctl(["disable", target], true);
+  return getBridgeAgentStatus(stateDirectory, label);
+}
+function removeBridgeAgent(stateDirectory, options) {
+  ensureDarwin();
+  const label = options?.label || BRIDGE_AGENT_LABEL;
+  const paths = getBridgeAgentPaths(stateDirectory, label);
+  const statusBeforeRemoval = stopBridgeAgent(stateDirectory, label);
+  fs.rmSync(paths.plistPath, { force: true });
+  if (options?.clearLogs) {
+    fs.rmSync(paths.stdoutPath, { force: true });
+    fs.rmSync(paths.stderrPath, { force: true });
+  }
+  return {
+    ...statusBeforeRemoval,
+    installed: false,
+    enabled: false,
+    loaded: false,
+    running: false
+  };
+}
+function getBridgeAgentStatus(stateDirectory, label = BRIDGE_AGENT_LABEL) {
+  ensureDarwin();
+  const paths = getBridgeAgentPaths(stateDirectory, label);
+  const installed = fs.existsSync(paths.plistPath);
+  const target = getTargetLabel(label);
+  const disabledOutput = runLaunchctl(["print-disabled", getLaunchdDomain()], true).output;
+  const disabled = parseBooleanFlag(disabledOutput, label);
+  const printResult = installed ? runLaunchctl(["print", target], true) : { ok: false, output: "" };
+  const stateMatch = printResult.output.match(/state = ([^\n]+)/);
+  const pidMatch = printResult.output.match(/pid = (\d+)/);
+  const exitMatch = printResult.output.match(/last exit code = (\d+)/);
+  const state = stateMatch?.[1]?.trim() || null;
+  const pid = pidMatch ? Number.parseInt(pidMatch[1], 10) : null;
+  const lastExitCode = exitMatch ? Number.parseInt(exitMatch[1], 10) : null;
+  return {
+    ...paths,
+    installed,
+    enabled: installed ? disabled !== true : false,
+    loaded: printResult.ok,
+    running: state === "running" || pid != null && pid > 0,
+    pid,
+    state,
+    lastExitCode,
+    launchctlSummary: printResult.output || null,
+    stdoutTail: readTail(paths.stdoutPath),
+    stderrTail: readTail(paths.stderrPath)
+  };
+}
+
 // src/ilink/auth.ts
 var DEFAULT_ILINK_BASE_URL = "https://ilinkai.weixin.qq.com";
 var QR_POLL_TIMEOUT_MS = 35e3;
@@ -22188,23 +22390,85 @@ var ILinkClient = class {
   }
 };
 
+// src/runtime.ts
+import fs2 from "node:fs";
+import path2 from "node:path";
+import { fileURLToPath } from "node:url";
+function hasPluginManifest(candidate) {
+  return fs2.existsSync(path2.join(candidate, ".codex-plugin", "plugin.json"));
+}
+function resolvePluginRoot(importMetaUrl) {
+  const currentDir = path2.dirname(fileURLToPath(importMetaUrl));
+  const candidates = [
+    path2.resolve(currentDir, "../.."),
+    path2.resolve(currentDir, "../../plugins/weixin-codex-bot"),
+    path2.resolve(currentDir, "../../../plugins/weixin-codex-bot")
+  ];
+  for (const candidate of candidates) {
+    if (hasPluginManifest(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error("Unable to locate the weixin-codex-bot plugin root.");
+}
+function resolvePackagedBridgeEntrypoint(importMetaUrl) {
+  const pluginRoot = resolvePluginRoot(importMetaUrl);
+  const bridgeEntrypoint = path2.join(pluginRoot, "dist", "cli", "bridge.js");
+  if (!fs2.existsSync(bridgeEntrypoint)) {
+    throw new Error(`Bridge runtime not found at ${bridgeEntrypoint}. Run npm run build first.`);
+  }
+  return bridgeEntrypoint;
+}
+
 // src/state.ts
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-var DEFAULT_STATE_DIR = path.join(os.homedir(), ".weixin-codex-bot");
+import fs3 from "node:fs";
+import os2 from "node:os";
+import path3 from "node:path";
+var DEFAULT_STATE_DIR = path3.join(os2.homedir(), ".weixin-codex-bot");
+var LOCAL_STATE_DIRNAME = ".codex-wechat-state";
+var SHARED_STATE_DIR = path3.join("/tmp", "weixin-codex-bot-state");
+function findNearestLocalStateDir(startDir) {
+  let current = path3.resolve(startDir);
+  while (true) {
+    const candidate = path3.join(current, LOCAL_STATE_DIRNAME);
+    if (fs3.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path3.dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
 function stateDir() {
-  return process.env.WEIXIN_CODEX_BOT_HOME ? path.resolve(process.env.WEIXIN_CODEX_BOT_HOME) : DEFAULT_STATE_DIR;
+  if (process.env.WEIXIN_CODEX_BOT_HOME) {
+    return path3.resolve(process.env.WEIXIN_CODEX_BOT_HOME);
+  }
+  if (fs3.existsSync(SHARED_STATE_DIR)) {
+    return SHARED_STATE_DIR;
+  }
+  if (process.env.CODEX_WORKSPACE) {
+    const workspaceStateDir = path3.join(path3.resolve(process.env.CODEX_WORKSPACE), LOCAL_STATE_DIRNAME);
+    if (fs3.existsSync(workspaceStateDir)) {
+      return workspaceStateDir;
+    }
+  }
+  const discovered = findNearestLocalStateDir(process.cwd());
+  if (discovered) {
+    return discovered;
+  }
+  return DEFAULT_STATE_DIR;
 }
 function ensureStateDir() {
-  fs.mkdirSync(stateDir(), { recursive: true });
+  fs3.mkdirSync(stateDir(), { recursive: true });
 }
 function resolvePath(filename) {
-  return path.join(stateDir(), filename);
+  return path3.join(stateDir(), filename);
 }
 function readJson(filename, fallback) {
   try {
-    return JSON.parse(fs.readFileSync(resolvePath(filename), "utf8"));
+    return JSON.parse(fs3.readFileSync(resolvePath(filename), "utf8"));
   } catch {
     return fallback;
   }
@@ -22212,10 +22476,92 @@ function readJson(filename, fallback) {
 function writeJson(filename, payload, mode) {
   ensureStateDir();
   const target = resolvePath(filename);
-  fs.writeFileSync(target, JSON.stringify(payload, null, 2));
+  fs3.writeFileSync(target, JSON.stringify(payload, null, 2));
   if (mode != null) {
-    fs.chmodSync(target, mode);
+    fs3.chmodSync(target, mode);
   }
+}
+function getStateDirectory() {
+  return stateDir();
+}
+function resolveMaybePath(value) {
+  if (path3.isAbsolute(value)) {
+    return value;
+  }
+  return value.includes(path3.sep) ? path3.resolve(value) : value;
+}
+function normalizeStoredBridgeConfig(config2) {
+  const normalized = {};
+  if (config2.codexBinary) {
+    normalized.codexBinary = resolveMaybePath(config2.codexBinary.trim());
+  }
+  if (config2.workspaceRoot) {
+    normalized.workspaceRoot = path3.resolve(config2.workspaceRoot);
+  }
+  if (config2.model) {
+    normalized.model = config2.model.trim();
+  }
+  if (config2.sandbox) {
+    normalized.sandbox = config2.sandbox;
+  }
+  if (typeof config2.fullAuto === "boolean") {
+    normalized.fullAuto = config2.fullAuto;
+  }
+  if (typeof config2.dangerousBypass === "boolean") {
+    normalized.dangerousBypass = config2.dangerousBypass;
+  }
+  if (typeof config2.skipGitRepoCheck === "boolean") {
+    normalized.skipGitRepoCheck = config2.skipGitRepoCheck;
+  }
+  if (Array.isArray(config2.addDirs)) {
+    normalized.addDirs = Array.from(
+      new Set(
+        config2.addDirs.map((item) => item.trim()).filter(Boolean).map((item) => path3.resolve(item))
+      )
+    );
+  }
+  if (typeof config2.multiTurn === "boolean") {
+    normalized.multiTurn = config2.multiTurn;
+  }
+  if (typeof config2.stripMarkdown === "boolean") {
+    normalized.stripMarkdown = config2.stripMarkdown;
+  }
+  if (typeof config2.systemPrompt === "string" && config2.systemPrompt.trim()) {
+    normalized.systemPrompt = config2.systemPrompt.trim();
+  }
+  if (typeof config2.idleRetryMs === "number" && Number.isFinite(config2.idleRetryMs) && config2.idleRetryMs > 0) {
+    normalized.idleRetryMs = Math.trunc(config2.idleRetryMs);
+  }
+  if (Array.isArray(config2.allowedUserIds)) {
+    normalized.allowedUserIds = Array.from(
+      new Set(
+        config2.allowedUserIds.map((item) => item.trim()).filter(Boolean)
+      )
+    );
+  }
+  if (typeof config2.triggerPrefix === "string") {
+    normalized.triggerPrefix = config2.triggerPrefix.trim();
+  }
+  if (config2.deliveryMode === "exec" || config2.deliveryMode === "queue") {
+    normalized.deliveryMode = config2.deliveryMode;
+  }
+  if (config2.queueAckMode === "none" || config2.queueAckMode === "typing" || config2.queueAckMode === "text" || config2.queueAckMode === "both") {
+    normalized.queueAckMode = config2.queueAckMode;
+  }
+  if (typeof config2.queueAckText === "string") {
+    normalized.queueAckText = config2.queueAckText.trim();
+  }
+  return normalized;
+}
+function normalizePendingSetup(setup) {
+  const heartbeatIntervalMinutes = Number.isInteger(setup.heartbeatIntervalMinutes) && setup.heartbeatIntervalMinutes > 0 ? setup.heartbeatIntervalMinutes : 1;
+  const heartbeatName = setup.heartbeatName?.trim() || void 0;
+  return {
+    bridgeConfig: normalizeStoredBridgeConfig(setup.bridgeConfig),
+    heartbeatIntervalMinutes,
+    heartbeatName,
+    requestedAt: setup.requestedAt
+  };
 }
 function saveCredentials(credentials) {
   const payload = {
@@ -22229,7 +22575,7 @@ function loadCredentials() {
   return readJson("credentials.json", null);
 }
 function clearCredentials() {
-  fs.rmSync(resolvePath("credentials.json"), { force: true });
+  fs3.rmSync(resolvePath("credentials.json"), { force: true });
 }
 function savePendingLogin(pending) {
   writeJson("pending-login.json", pending, 384);
@@ -22238,21 +22584,33 @@ function loadPendingLogin() {
   return readJson("pending-login.json", null);
 }
 function clearPendingLogin() {
-  fs.rmSync(resolvePath("pending-login.json"), { force: true });
+  fs3.rmSync(resolvePath("pending-login.json"), { force: true });
+}
+function savePendingSetup(setup) {
+  const payload = normalizePendingSetup(setup);
+  writeJson("pending-setup.json", payload, 384);
+  return payload;
+}
+function loadPendingSetup() {
+  const setup = readJson("pending-setup.json", null);
+  return setup ? normalizePendingSetup(setup) : null;
+}
+function clearPendingSetup() {
+  fs3.rmSync(resolvePath("pending-setup.json"), { force: true });
 }
 function loadCursor() {
   try {
-    return fs.readFileSync(resolvePath("sync-cursor.txt"), "utf8");
+    return fs3.readFileSync(resolvePath("sync-cursor.txt"), "utf8");
   } catch {
     return "";
   }
 }
 function saveCursor(cursor) {
   ensureStateDir();
-  fs.writeFileSync(resolvePath("sync-cursor.txt"), cursor, "utf8");
+  fs3.writeFileSync(resolvePath("sync-cursor.txt"), cursor, "utf8");
 }
 function clearCursor() {
-  fs.rmSync(resolvePath("sync-cursor.txt"), { force: true });
+  fs3.rmSync(resolvePath("sync-cursor.txt"), { force: true });
 }
 function loadContextMap() {
   return readJson("context-tokens.json", {});
@@ -22269,7 +22627,7 @@ function setContextToken(userId, token) {
   saveContextMap(tokens);
 }
 function clearContextTokens() {
-  fs.rmSync(resolvePath("context-tokens.json"), { force: true });
+  fs3.rmSync(resolvePath("context-tokens.json"), { force: true });
 }
 function loadSessionMap() {
   return readJson("codex-sessions.json", {});
@@ -22283,14 +22641,88 @@ function clearCodexSession(userId) {
   saveSessionMap(sessions);
 }
 function clearAllCodexSessions() {
-  fs.rmSync(resolvePath("codex-sessions.json"), { force: true });
+  fs3.rmSync(resolvePath("codex-sessions.json"), { force: true });
+}
+function loadStoredBridgeConfig() {
+  return normalizeStoredBridgeConfig(readJson("bridge-config.json", {}));
+}
+function saveStoredBridgeConfig(config2) {
+  const payload = normalizeStoredBridgeConfig(config2);
+  writeJson("bridge-config.json", payload, 384);
+  return payload;
+}
+function clearStoredBridgeConfig() {
+  fs3.rmSync(resolvePath("bridge-config.json"), { force: true });
+}
+function loadConversationMap() {
+  return readJson("known-conversations.json", {});
+}
+function saveConversationMap(payload) {
+  writeJson("known-conversations.json", payload, 384);
+}
+function upsertConversation(userId, patch) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const conversations = loadConversationMap();
+  const existing = conversations[userId] ?? {
+    userId,
+    updatedAt: now
+  };
+  const next = {
+    ...existing,
+    ...patch,
+    userId,
+    updatedAt: now
+  };
+  conversations[userId] = next;
+  saveConversationMap(conversations);
+  return next;
+}
+function recordInboundConversation(input) {
+  const patch = {};
+  if (input.contextToken) {
+    patch.contextToken = input.contextToken;
+  }
+  if (input.text) {
+    patch.lastInboundText = input.text;
+  }
+  if (input.createTimeMs && Number.isFinite(input.createTimeMs)) {
+    patch.lastInboundAt = new Date(input.createTimeMs).toISOString();
+  } else {
+    patch.lastInboundAt = (/* @__PURE__ */ new Date()).toISOString();
+  }
+  return upsertConversation(input.userId, patch);
+}
+function recordOutboundConversation(input) {
+  const patch = {
+    lastOutboundAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (input.contextToken) {
+    patch.contextToken = input.contextToken;
+  }
+  if (input.text) {
+    patch.lastOutboundText = input.text;
+  }
+  return upsertConversation(input.userId, patch);
+}
+function listKnownConversations(limit) {
+  const conversations = Object.values(loadConversationMap()).sort((left, right) => {
+    const leftTime = Date.parse(left.updatedAt || left.lastInboundAt || left.lastOutboundAt || "");
+    const rightTime = Date.parse(right.updatedAt || right.lastInboundAt || right.lastOutboundAt || "");
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  });
+  return typeof limit === "number" ? conversations.slice(0, limit) : conversations;
+}
+function clearKnownConversations() {
+  fs3.rmSync(resolvePath("known-conversations.json"), { force: true });
 }
 function clearAllState() {
   clearPendingLogin();
+  clearPendingSetup();
   clearCredentials();
   clearCursor();
   clearContextTokens();
   clearAllCodexSessions();
+  clearKnownConversations();
 }
 
 // src/util/messages.ts
@@ -22329,7 +22761,109 @@ function normalizeInboundMessage(message) {
 }
 
 // src/mcp/server.ts
+var SANDBOX_VALUES = ["read-only", "workspace-write", "danger-full-access"];
+var DELIVERY_MODE_VALUES = ["exec", "queue"];
+var QUEUE_ACK_MODE_VALUES = ["none", "typing", "text", "both"];
+var DEFAULT_QUEUE_HEARTBEAT_INTERVAL_MINUTES = 1;
 var tools = [
+  {
+    name: "wechat_ilink_setup",
+    description: "Run the first-use WeChat setup flow end-to-end: remember exec or queue mode, guide QR login when needed, start the realtime bridge after login, and for queue mode return a heartbeat automation template for the current Codex thread.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        baseUrl: {
+          type: "string",
+          description: "Optional iLink base URL. Defaults to Tencent's public iLink endpoint."
+        },
+        workspaceRoot: {
+          type: "string",
+          description: "Absolute or relative workspace path that the bridge should run Codex in."
+        },
+        deliveryMode: {
+          type: "string",
+          enum: DELIVERY_MODE_VALUES,
+          description: "Use exec to let the background bridge call codex exec directly, or queue to hand messages to the current Desktop thread."
+        },
+        heartbeatIntervalMinutes: {
+          type: "integer",
+          minimum: 1,
+          maximum: 60,
+          description: "Queue mode only. Suggested thread heartbeat interval in minutes. Defaults to 1."
+        },
+        heartbeatName: {
+          type: "string",
+          description: "Queue mode only. Optional display name for the suggested thread heartbeat automation."
+        },
+        codexBinary: {
+          type: "string",
+          description: "Optional Codex executable path. Defaults to the current Codex binary if discoverable."
+        },
+        model: {
+          type: "string",
+          description: "Optional Codex model override."
+        },
+        sandbox: {
+          type: "string",
+          enum: SANDBOX_VALUES,
+          description: "Codex sandbox mode used when full-auto is disabled."
+        },
+        fullAuto: {
+          type: "boolean",
+          description: "Whether the bridge should run Codex with --full-auto."
+        },
+        dangerousBypass: {
+          type: "boolean",
+          description: "Whether the bridge should run Codex with dangerous bypass approvals and sandbox."
+        },
+        skipGitRepoCheck: {
+          type: "boolean",
+          description: "Whether to pass --skip-git-repo-check to Codex."
+        },
+        addDirs: {
+          type: "array",
+          items: { type: "string" },
+          description: "Extra writable directories passed to Codex with --add-dir."
+        },
+        multiTurn: {
+          type: "boolean",
+          description: "Whether to reuse a Codex session per WeChat user."
+        },
+        stripMarkdown: {
+          type: "boolean",
+          description: "Whether to flatten Markdown before replying to WeChat."
+        },
+        triggerPrefix: {
+          type: "string",
+          description: "Optional command prefix that a message must start with before the bridge forwards it to Codex."
+        },
+        allowedUserIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional allow-list of WeChat user ids that may trigger the bridge."
+        },
+        systemPrompt: {
+          type: "string",
+          description: "Additional system prompt prepended to each Codex bridge request."
+        },
+        idleRetryMs: {
+          type: "integer",
+          minimum: 1e3,
+          description: "Retry delay in milliseconds after a polling failure."
+        },
+        queueAckMode: {
+          type: "string",
+          enum: QUEUE_ACK_MODE_VALUES,
+          description: "Queue mode acknowledgement behavior. Defaults to typing so WeChat shows an input indicator."
+        },
+        queueAckText: {
+          type: "string",
+          description: "Optional acknowledgement text used when queueAckMode is text or both."
+        }
+      },
+      additionalProperties: false
+    }
+  },
   {
     name: "wechat_ilink_ensure_login",
     description: "Ensure WeChat iLink is logged in. If not yet bound, return QR content and a terminal QR to guide the user.",
@@ -22369,7 +22903,7 @@ var tools = [
   },
   {
     name: "wechat_ilink_status",
-    description: "Inspect stored login status, pending QR state, and saved cursor state.",
+    description: "Inspect stored login status, pending QR state, saved cursor state, and known conversations.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -22435,6 +22969,142 @@ var tools = [
     }
   },
   {
+    name: "wechat_ilink_list_conversations",
+    description: "List recent WeChat conversations cached by the plugin so Codex can proactively message known users.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Maximum number of recent conversations to return."
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: "wechat_ilink_bridge_start",
+    description: "Install or update the realtime WeChat bridge as a macOS launchd background service and start it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspaceRoot: {
+          type: "string",
+          description: "Absolute or relative workspace path that the bridge should run Codex in."
+        },
+        codexBinary: {
+          type: "string",
+          description: "Optional Codex executable path. Defaults to the current Codex binary if discoverable."
+        },
+        model: {
+          type: "string",
+          description: "Optional Codex model override."
+        },
+        sandbox: {
+          type: "string",
+          enum: SANDBOX_VALUES,
+          description: "Codex sandbox mode used when full-auto is disabled."
+        },
+        fullAuto: {
+          type: "boolean",
+          description: "Whether the bridge should run Codex with --full-auto."
+        },
+        dangerousBypass: {
+          type: "boolean",
+          description: "Whether the bridge should run Codex with dangerous bypass approvals and sandbox."
+        },
+        skipGitRepoCheck: {
+          type: "boolean",
+          description: "Whether to pass --skip-git-repo-check to Codex."
+        },
+        addDirs: {
+          type: "array",
+          items: { type: "string" },
+          description: "Extra writable directories passed to Codex with --add-dir."
+        },
+        multiTurn: {
+          type: "boolean",
+          description: "Whether to reuse a Codex session per WeChat user."
+        },
+        stripMarkdown: {
+          type: "boolean",
+          description: "Whether to flatten Markdown before replying to WeChat."
+        },
+        triggerPrefix: {
+          type: "string",
+          description: "Optional command prefix that a message must start with before the bridge forwards it to Codex."
+        },
+        allowedUserIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional allow-list of WeChat user ids that may trigger the bridge."
+        },
+        systemPrompt: {
+          type: "string",
+          description: "Additional system prompt prepended to each Codex bridge request."
+        },
+        idleRetryMs: {
+          type: "integer",
+          minimum: 1e3,
+          description: "Retry delay in milliseconds after a polling failure."
+        },
+        deliveryMode: {
+          type: "string",
+          enum: DELIVERY_MODE_VALUES,
+          description: "Whether the bridge should forward messages directly to codex exec or enqueue them for a Desktop heartbeat thread."
+        },
+        queueAckMode: {
+          type: "string",
+          enum: QUEUE_ACK_MODE_VALUES,
+          description: "Queue mode acknowledgement behavior. Defaults to typing so WeChat shows an input indicator instead of an immediate text reply."
+        },
+        queueAckText: {
+          type: "string",
+          description: "Optional acknowledgement text used when queueAckMode is text or both."
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: "wechat_ilink_bridge_stop",
+    description: "Stop the realtime WeChat bridge background service but keep its saved configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false
+    }
+  },
+  {
+    name: "wechat_ilink_bridge_status",
+    description: "Inspect the realtime WeChat bridge launchd status, saved configuration, and recent logs.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false
+    }
+  },
+  {
+    name: "wechat_ilink_bridge_remove",
+    description: "Uninstall the realtime WeChat bridge launchd agent, optionally removing logs and saved bridge config.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        clearLogs: {
+          type: "boolean",
+          description: "Whether to remove the bridge stdout/stderr log files."
+        },
+        clearSavedConfig: {
+          type: "boolean",
+          description: "Whether to remove the saved bridge configuration file."
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  {
     name: "wechat_ilink_clear_codex_session",
     description: "Forget the saved Codex multi-turn session for a WeChat user.",
     inputSchema: {
@@ -22474,6 +23144,83 @@ function requireString(value, name) {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(`${name} is required`);
   }
+  return value.trim();
+}
+function optionalString(value, name) {
+  if (value == null) {
+    return void 0;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${name} must be a string`);
+  }
+  const trimmed = value.trim();
+  return trimmed || void 0;
+}
+function optionalBoolean(value, name) {
+  if (value == null) {
+    return void 0;
+  }
+  if (typeof value !== "boolean") {
+    throw new Error(`${name} must be a boolean`);
+  }
+  return value;
+}
+function optionalInteger(value, name) {
+  if (value == null) {
+    return void 0;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`${name} must be an integer`);
+  }
+  return value;
+}
+function optionalPositiveInteger(value, name, minimum = 1, maximum) {
+  const parsed = optionalInteger(value, name);
+  if (parsed == null) {
+    return void 0;
+  }
+  if (parsed < minimum) {
+    throw new Error(`${name} must be at least ${minimum}`);
+  }
+  if (maximum != null && parsed > maximum) {
+    throw new Error(`${name} must be at most ${maximum}`);
+  }
+  return parsed;
+}
+function optionalStringArray(value, name) {
+  if (value == null) {
+    return void 0;
+  }
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${name} must be an array of strings`);
+  }
+  return value.map((item) => item.trim()).filter(Boolean);
+}
+function optionalSandbox(value) {
+  if (value == null) {
+    return void 0;
+  }
+  if (typeof value !== "string" || !SANDBOX_VALUES.includes(value)) {
+    throw new Error(`sandbox must be one of: ${SANDBOX_VALUES.join(", ")}`);
+  }
+  return value;
+}
+function optionalDeliveryMode(value) {
+  if (value == null) {
+    return void 0;
+  }
+  if (typeof value !== "string" || !DELIVERY_MODE_VALUES.includes(value)) {
+    throw new Error(`deliveryMode must be one of: ${DELIVERY_MODE_VALUES.join(", ")}`);
+  }
+  return value;
+}
+function optionalQueueAckMode(value) {
+  if (value == null) {
+    return void 0;
+  }
+  if (typeof value !== "string" || !QUEUE_ACK_MODE_VALUES.includes(value)) {
+    throw new Error(`queueAckMode must be one of: ${QUEUE_ACK_MODE_VALUES.join(", ")}`);
+  }
   return value;
 }
 function renderTerminalQr(content) {
@@ -22482,6 +23229,21 @@ function renderTerminalQr(content) {
     rendered = output;
   });
   return rendered.trim();
+}
+function getLoginReadyNextAction() {
+  return loadPendingSetup() ? "Login is ready. Re-run wechat_ilink_setup to finish bridge setup." : "Login is ready. You can now pull messages, send replies, or start the realtime bridge.";
+}
+function summarizePendingSetup(setup) {
+  if (!setup) {
+    return null;
+  }
+  return {
+    requestedAt: setup.requestedAt,
+    deliveryMode: setup.bridgeConfig.deliveryMode ?? "exec",
+    workspaceRoot: setup.bridgeConfig.workspaceRoot ?? null,
+    heartbeatIntervalMinutes: setup.heartbeatIntervalMinutes,
+    heartbeatName: setup.heartbeatName ?? null
+  };
 }
 function getClient() {
   const credentials = loadCredentials();
@@ -22494,6 +23256,226 @@ function getClient() {
   });
   client.cursor = loadCursor();
   return client;
+}
+function ensureExistingDirectory(directoryPath, name) {
+  const resolved = path4.resolve(directoryPath);
+  if (!fs4.existsSync(resolved)) {
+    throw new Error(`${name} does not exist: ${resolved}`);
+  }
+  if (!fs4.statSync(resolved).isDirectory()) {
+    throw new Error(`${name} is not a directory: ${resolved}`);
+  }
+  return resolved;
+}
+function resolveExecutable(candidate) {
+  const trimmed = candidate.trim();
+  if (!trimmed) {
+    throw new Error("codexBinary cannot be empty");
+  }
+  if (trimmed.includes(path4.sep)) {
+    const resolved = path4.resolve(trimmed);
+    if (!fs4.existsSync(resolved)) {
+      throw new Error(`Executable not found: ${resolved}`);
+    }
+    return resolved;
+  }
+  const whichResult = spawnSync2("which", [trimmed], {
+    encoding: "utf8"
+  });
+  if (whichResult.status === 0) {
+    const resolved = whichResult.stdout.trim();
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return trimmed;
+}
+function parseBridgeConfigUpdate(args) {
+  const config2 = {};
+  const workspaceRoot = optionalString(args.workspaceRoot, "workspaceRoot");
+  if (workspaceRoot) {
+    config2.workspaceRoot = ensureExistingDirectory(workspaceRoot, "workspaceRoot");
+  }
+  const codexBinary = optionalString(args.codexBinary, "codexBinary");
+  if (codexBinary) {
+    config2.codexBinary = resolveExecutable(codexBinary);
+  }
+  const model = optionalString(args.model, "model");
+  if (model) {
+    config2.model = model;
+  }
+  const sandbox = optionalSandbox(args.sandbox);
+  if (sandbox) {
+    config2.sandbox = sandbox;
+  }
+  const fullAuto = optionalBoolean(args.fullAuto, "fullAuto");
+  if (fullAuto != null) {
+    config2.fullAuto = fullAuto;
+  }
+  const dangerousBypass = optionalBoolean(args.dangerousBypass, "dangerousBypass");
+  if (dangerousBypass != null) {
+    config2.dangerousBypass = dangerousBypass;
+  }
+  const skipGitRepoCheck = optionalBoolean(args.skipGitRepoCheck, "skipGitRepoCheck");
+  if (skipGitRepoCheck != null) {
+    config2.skipGitRepoCheck = skipGitRepoCheck;
+  }
+  const addDirs = optionalStringArray(args.addDirs, "addDirs");
+  if (addDirs != null) {
+    config2.addDirs = addDirs.map((item) => ensureExistingDirectory(item, "addDirs entry"));
+  }
+  const multiTurn = optionalBoolean(args.multiTurn, "multiTurn");
+  if (multiTurn != null) {
+    config2.multiTurn = multiTurn;
+  }
+  const stripMarkdown = optionalBoolean(args.stripMarkdown, "stripMarkdown");
+  if (stripMarkdown != null) {
+    config2.stripMarkdown = stripMarkdown;
+  }
+  const triggerPrefix = optionalString(args.triggerPrefix, "triggerPrefix");
+  if (triggerPrefix !== void 0) {
+    config2.triggerPrefix = triggerPrefix;
+  } else if (typeof args.triggerPrefix === "string") {
+    config2.triggerPrefix = "";
+  }
+  const allowedUserIds = optionalStringArray(args.allowedUserIds, "allowedUserIds");
+  if (allowedUserIds != null) {
+    config2.allowedUserIds = allowedUserIds;
+  }
+  const systemPrompt = optionalString(args.systemPrompt, "systemPrompt");
+  if (systemPrompt) {
+    config2.systemPrompt = systemPrompt;
+  }
+  const idleRetryMs = optionalInteger(args.idleRetryMs, "idleRetryMs");
+  if (idleRetryMs != null) {
+    if (idleRetryMs < 1e3) {
+      throw new Error("idleRetryMs must be at least 1000");
+    }
+    config2.idleRetryMs = idleRetryMs;
+  }
+  const deliveryMode = optionalDeliveryMode(args.deliveryMode);
+  if (deliveryMode) {
+    config2.deliveryMode = deliveryMode;
+  }
+  const queueAckMode = optionalQueueAckMode(args.queueAckMode);
+  if (queueAckMode) {
+    config2.queueAckMode = queueAckMode;
+  }
+  const queueAckText = optionalString(args.queueAckText, "queueAckText");
+  if (queueAckText !== void 0) {
+    config2.queueAckText = queueAckText;
+  } else if (typeof args.queueAckText === "string") {
+    config2.queueAckText = "";
+  }
+  return config2;
+}
+function buildSavedBridgeConfig(args) {
+  const current = loadStoredBridgeConfig();
+  const update = parseBridgeConfigUpdate(args);
+  const workspaceRoot = update.workspaceRoot ?? current.workspaceRoot;
+  if (!workspaceRoot) {
+    throw new Error("workspaceRoot is required the first time you start the realtime bridge.");
+  }
+  const codexBinary = update.codexBinary ?? current.codexBinary ?? resolveExecutable(process.env.CODEX_BINARY || process.env.CODEX_BIN || "codex");
+  return {
+    ...current,
+    ...update,
+    workspaceRoot,
+    codexBinary
+  };
+}
+function buildPendingSetupRequest(args) {
+  const savedConfig = loadStoredBridgeConfig();
+  const existing = loadPendingSetup();
+  const update = parseBridgeConfigUpdate(args);
+  const workspaceRoot = update.workspaceRoot ?? existing?.bridgeConfig.workspaceRoot ?? savedConfig.workspaceRoot;
+  if (!workspaceRoot) {
+    throw new Error("workspaceRoot is required the first time you run wechat_ilink_setup.");
+  }
+  const codexBinary = update.codexBinary ?? existing?.bridgeConfig.codexBinary ?? savedConfig.codexBinary ?? resolveExecutable(process.env.CODEX_BINARY || process.env.CODEX_BIN || "codex");
+  const deliveryMode = update.deliveryMode ?? existing?.bridgeConfig.deliveryMode ?? savedConfig.deliveryMode ?? "exec";
+  const queueAckMode = update.queueAckMode ?? existing?.bridgeConfig.queueAckMode ?? savedConfig.queueAckMode ?? "typing";
+  const queueAckText = update.queueAckText ?? existing?.bridgeConfig.queueAckText ?? savedConfig.queueAckText ?? "";
+  const heartbeatIntervalMinutes = optionalPositiveInteger(args.heartbeatIntervalMinutes, "heartbeatIntervalMinutes", 1, 60) ?? existing?.heartbeatIntervalMinutes ?? DEFAULT_QUEUE_HEARTBEAT_INTERVAL_MINUTES;
+  const heartbeatName = optionalString(args.heartbeatName, "heartbeatName") ?? existing?.heartbeatName ?? void 0;
+  return {
+    bridgeConfig: {
+      ...savedConfig,
+      ...existing?.bridgeConfig,
+      ...update,
+      workspaceRoot,
+      codexBinary,
+      deliveryMode,
+      queueAckMode,
+      queueAckText
+    },
+    heartbeatIntervalMinutes,
+    heartbeatName,
+    requestedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function buildSetupWaitingPayload(input) {
+  return {
+    ok: true,
+    phase: "login",
+    loggedIn: false,
+    status: input.loginStatus,
+    deliveryMode: input.setup.bridgeConfig.deliveryMode ?? "exec",
+    setup: summarizePendingSetup(input.setup),
+    bridgeWillAutoStartAfterLogin: true,
+    qrContent: input.qrContent,
+    terminalQr: renderTerminalQr(input.qrContent),
+    baseUrl: input.baseUrl,
+    refreshed: input.refreshed ?? false,
+    nextAction: input.loginStatus === "scanned" ? "The QR has been scanned. Ask the user to confirm inside WeChat, then call wechat_ilink_setup again with the same mode." : "Show the QR to the user, ask them to scan and confirm in WeChat, then call wechat_ilink_setup again with the same mode."
+  };
+}
+function buildQueueHeartbeatTemplate(setup) {
+  const workspaceRoot = setup.bridgeConfig.workspaceRoot;
+  const stateDirectory = getStateDirectory();
+  const interval = setup.heartbeatIntervalMinutes;
+  const name = setup.heartbeatName || "WeChat Queue";
+  const envPrefix = `WEIXIN_CODEX_BOT_HOME=${stateDirectory}`;
+  return {
+    required: true,
+    kind: "heartbeat",
+    destination: "thread",
+    name,
+    intervalMinutes: interval,
+    rrule: `FREQ=MINUTELY;INTERVAL=${interval}`,
+    workspaceRoot,
+    stateDirectory,
+    prompt: [
+      "Process at most one pending WeChat queue item for this thread.",
+      `Run \`${envPrefix} node --import tsx src/cli/queue-pop.ts --claimed-by desktop-heartbeat\` in the workspace to claim the next item.`,
+      "If no queue item is returned, stop for this run.",
+      "If an item is claimed, treat its `text` as the user's request, do the needed work in this thread, write the final plain-text reply to a temporary file, and send it back with",
+      `\`${envPrefix} node --import tsx src/cli/queue-reply.ts --id <queue-id> --text-file <reply-file> --typing\`.`,
+      "Keep the final reply concise and suitable for WeChat."
+    ].join(" "),
+    note: "The host Codex assistant should create this heartbeat automation for the current thread."
+  };
+}
+function completeSetup(setup) {
+  const savedConfig = saveStoredBridgeConfig(setup.bridgeConfig);
+  const bridge = startBridgeAgent({
+    bridgeEntrypoint: resolvePackagedBridgeEntrypoint(import.meta.url),
+    stateDirectory: getStateDirectory(),
+    nodeBinary: process.execPath
+  });
+  clearPendingSetup();
+  return textResult({
+    ok: true,
+    phase: "complete",
+    loggedIn: true,
+    deliveryMode: savedConfig.deliveryMode ?? "exec",
+    bridgeAutoStarted: true,
+    bridge,
+    savedConfig,
+    stateDirectory: getStateDirectory(),
+    heartbeatAutomation: savedConfig.deliveryMode === "queue" ? buildQueueHeartbeatTemplate(setup) : null,
+    nextAction: savedConfig.deliveryMode === "queue" ? "Bridge is running in queue mode. The host Codex assistant should now create the suggested heartbeat automation for this thread." : "Bridge is running in exec mode. WeChat messages can now call codex exec directly."
+  });
 }
 async function handleStartLogin(args) {
   const baseUrl = typeof args.baseUrl === "string" && args.baseUrl ? args.baseUrl : DEFAULT_ILINK_BASE_URL;
@@ -22516,6 +23498,66 @@ async function handleStartLogin(args) {
     note: "Scan qrContent with WeChat, then call wechat_ilink_check_login."
   });
 }
+async function handleSetup(args) {
+  const setup = savePendingSetup(buildPendingSetupRequest(args));
+  const credentials = loadCredentials();
+  if (credentials) {
+    return completeSetup(setup);
+  }
+  const pending = loadPendingLogin();
+  if (!pending) {
+    const baseUrl = typeof args.baseUrl === "string" && args.baseUrl ? args.baseUrl : DEFAULT_ILINK_BASE_URL;
+    const qr = await startQrLogin(baseUrl);
+    savePendingLogin({
+      qrcode: qr.qrcode,
+      qrContent: qr.qrcode_img_content,
+      baseUrl,
+      refreshCount: 0,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return textResult(
+      buildSetupWaitingPayload({
+        setup,
+        loginStatus: "waiting",
+        qrContent: qr.qrcode_img_content,
+        baseUrl
+      })
+    );
+  }
+  const status = await checkQrLogin(pending.baseUrl, pending.qrcode);
+  if (status.status === "confirmed") {
+    saveCredentials(toLoginResult(status, pending.baseUrl));
+    clearPendingLogin();
+    return completeSetup(setup);
+  }
+  if (status.status === "expired") {
+    const refreshed = await startQrLogin(pending.baseUrl);
+    savePendingLogin({
+      qrcode: refreshed.qrcode,
+      qrContent: refreshed.qrcode_img_content,
+      baseUrl: pending.baseUrl,
+      refreshCount: pending.refreshCount + 1,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return textResult(
+      buildSetupWaitingPayload({
+        setup,
+        loginStatus: "expired",
+        qrContent: refreshed.qrcode_img_content,
+        baseUrl: pending.baseUrl,
+        refreshed: true
+      })
+    );
+  }
+  return textResult(
+    buildSetupWaitingPayload({
+      setup,
+      loginStatus: status.status === "scaned" ? "scanned" : "waiting",
+      qrContent: pending.qrContent,
+      baseUrl: pending.baseUrl
+    })
+  );
+}
 async function handleEnsureLogin(args) {
   const credentials = loadCredentials();
   if (credentials) {
@@ -22526,7 +23568,8 @@ async function handleEnsureLogin(args) {
       baseUrl: credentials.baseUrl,
       userId: credentials.userId ?? null,
       savedAt: credentials.savedAt,
-      nextAction: "Login is ready. You can now pull messages or send replies."
+      nextAction: getLoginReadyNextAction(),
+      pendingSetup: summarizePendingSetup(loadPendingSetup())
     });
   }
   const pending = loadPendingLogin();
@@ -22544,7 +23587,8 @@ async function handleEnsureLogin(args) {
       baseUrl: saved.baseUrl,
       userId: saved.userId ?? null,
       savedAt: saved.savedAt,
-      nextAction: "Login is ready. You can now pull messages or send replies."
+      nextAction: getLoginReadyNextAction(),
+      pendingSetup: summarizePendingSetup(loadPendingSetup())
     });
   }
   if (status.status === "expired") {
@@ -22593,7 +23637,8 @@ async function handleCheckLogin() {
       baseUrl: credentials.baseUrl,
       userId: credentials.userId ?? null,
       savedAt: credentials.savedAt,
-      nextAction: "Login is ready. You can now pull messages or send replies."
+      nextAction: getLoginReadyNextAction(),
+      pendingSetup: summarizePendingSetup(loadPendingSetup())
     });
   }
   return textResult({
@@ -22620,7 +23665,11 @@ async function handleStatus() {
     pendingQrContent: pending?.qrContent ?? null,
     pendingTerminalQr: pending?.qrContent ? renderTerminalQr(pending.qrContent) : null,
     hasCursor: cursor.length > 0,
-    cursorLength: cursor.length
+    cursorLength: cursor.length,
+    stateDirectory: getStateDirectory(),
+    knownConversationCount: listKnownConversations().length,
+    bridgeAgentLabel: BRIDGE_AGENT_LABEL,
+    pendingSetup: summarizePendingSetup(loadPendingSetup())
   });
 }
 async function handlePullUpdates(args) {
@@ -22631,6 +23680,14 @@ async function handlePullUpdates(args) {
   const normalized = (response.msgs ?? []).map((message) => {
     if (message.from_user_id && message.context_token) {
       setContextToken(message.from_user_id, message.context_token);
+    }
+    if (message.from_user_id) {
+      recordInboundConversation({
+        userId: message.from_user_id,
+        text: normalizeInboundMessage(message).text,
+        contextToken: message.context_token,
+        createTimeMs: message.create_time_ms ?? null
+      });
     }
     return normalizeInboundMessage(message);
   });
@@ -22652,6 +23709,11 @@ async function handleSendText(args) {
   }
   const client = getClient();
   const sent = await client.sendTextChunked(toUserId, text, contextToken);
+  recordOutboundConversation({
+    userId: toUserId,
+    text,
+    contextToken
+  });
   return textResult({
     ok: true,
     toUserId,
@@ -22668,6 +23730,64 @@ async function handleSendTyping(args) {
     toUserId
   });
 }
+async function handleListConversations(args) {
+  const limit = typeof args.limit === "number" ? args.limit : 20;
+  return textResult({
+    conversations: listKnownConversations(limit),
+    total: listKnownConversations().length
+  });
+}
+async function handleBridgeStart(args) {
+  if (!loadCredentials()) {
+    throw new Error("WeChat is not logged in yet. Run wechat_ilink_ensure_login before starting the realtime bridge.");
+  }
+  const savedConfig = saveStoredBridgeConfig(buildSavedBridgeConfig(args));
+  const status = startBridgeAgent({
+    bridgeEntrypoint: resolvePackagedBridgeEntrypoint(import.meta.url),
+    stateDirectory: getStateDirectory(),
+    nodeBinary: process.execPath
+  });
+  return textResult({
+    ok: true,
+    note: "Realtime bridge installed and started.",
+    bridge: status,
+    savedConfig,
+    stateDirectory: getStateDirectory()
+  });
+}
+async function handleBridgeStop() {
+  const status = stopBridgeAgent(getStateDirectory());
+  return textResult({
+    ok: true,
+    note: "Realtime bridge stopped. Saved config was kept.",
+    bridge: status
+  });
+}
+async function handleBridgeStatus() {
+  const savedConfig = loadStoredBridgeConfig();
+  const status = getBridgeAgentStatus(getStateDirectory());
+  return textResult({
+    bridge: status,
+    savedConfig,
+    stateDirectory: getStateDirectory(),
+    knownConversationCount: listKnownConversations().length,
+    bridgeEntrypoint: resolvePackagedBridgeEntrypoint(import.meta.url)
+  });
+}
+async function handleBridgeRemove(args) {
+  const clearLogs = optionalBoolean(args.clearLogs, "clearLogs") ?? false;
+  const clearSavedConfig = optionalBoolean(args.clearSavedConfig, "clearSavedConfig") ?? false;
+  const status = removeBridgeAgent(getStateDirectory(), { clearLogs });
+  if (clearSavedConfig) {
+    clearStoredBridgeConfig();
+  }
+  return textResult({
+    ok: true,
+    note: "Realtime bridge launchd agent removed.",
+    bridge: status,
+    clearedSavedConfig: clearSavedConfig
+  });
+}
 async function handleClearCodexSession(args) {
   const userId = requireString(args.userId, "userId");
   clearCodexSession(userId);
@@ -22680,11 +23800,13 @@ async function handleLogout() {
   clearAllState();
   return textResult({
     ok: true,
-    note: "All saved state has been cleared."
+    note: "All saved WeChat runtime state has been cleared. Bridge config was left untouched."
   });
 }
 async function dispatchTool(name, args) {
   switch (name) {
+    case "wechat_ilink_setup":
+      return handleSetup(args);
     case "wechat_ilink_ensure_login":
       return handleEnsureLogin(args);
     case "wechat_ilink_start_login":
@@ -22699,6 +23821,16 @@ async function dispatchTool(name, args) {
       return handleSendText(args);
     case "wechat_ilink_send_typing":
       return handleSendTyping(args);
+    case "wechat_ilink_list_conversations":
+      return handleListConversations(args);
+    case "wechat_ilink_bridge_start":
+      return handleBridgeStart(args);
+    case "wechat_ilink_bridge_stop":
+      return handleBridgeStop();
+    case "wechat_ilink_bridge_status":
+      return handleBridgeStatus();
+    case "wechat_ilink_bridge_remove":
+      return handleBridgeRemove(args);
     case "wechat_ilink_clear_codex_session":
       return handleClearCodexSession(args);
     case "wechat_ilink_logout":
